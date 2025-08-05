@@ -1,26 +1,40 @@
 
+import { db } from '../db';
+import { pasienTable } from '../db/schema';
+import { eq } from 'drizzle-orm';
 import { type Kwitansi } from '../schema';
 
 export async function generateKwitansi(pasienId: number): Promise<Kwitansi> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is to generate a receipt (kwitansi) for a patient.
-    // It should fetch patient data and generate a unique receipt number.
-    return Promise.resolve({
-        pasien: {
-            id: pasienId,
-            nama: 'placeholder',
-            umur: 0,
-            jenis_kelamin: 'L',
-            alamat: 'placeholder',
-            kontak: 'placeholder',
-            tanggal_tindakan: new Date(),
-            catatan_medis: null,
-            biaya: 0,
-            status_pembayaran: 'LUNAS',
-            created_at: new Date(),
-            updated_at: new Date()
-        },
-        nomor_kwitansi: 'KWT-' + Date.now(),
-        tanggal_cetak: new Date()
-    });
+  try {
+    // Fetch patient data
+    const patients = await db.select()
+      .from(pasienTable)
+      .where(eq(pasienTable.id, pasienId))
+      .execute();
+
+    if (patients.length === 0) {
+      throw new Error(`Patient with id ${pasienId} not found`);
+    }
+
+    const patient = patients[0];
+
+    // Convert numeric field back to number
+    const pasien = {
+      ...patient,
+      biaya: parseFloat(patient.biaya)
+    };
+
+    // Generate unique receipt number using timestamp and patient ID
+    const timestamp = Date.now();
+    const nomor_kwitansi = `KWT-${pasienId.toString().padStart(4, '0')}-${timestamp}`;
+
+    return {
+      pasien,
+      nomor_kwitansi,
+      tanggal_cetak: new Date()
+    };
+  } catch (error) {
+    console.error('Receipt generation failed:', error);
+    throw error;
+  }
 }

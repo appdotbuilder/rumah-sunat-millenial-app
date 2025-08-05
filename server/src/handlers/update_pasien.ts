@@ -1,22 +1,46 @@
 
+import { db } from '../db';
+import { pasienTable } from '../db/schema';
 import { type UpdatePasienInput, type Pasien } from '../schema';
+import { eq } from 'drizzle-orm';
 
-export async function updatePasien(input: UpdatePasienInput): Promise<Pasien> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is to update an existing patient record in the database.
-    // It should update the updated_at timestamp automatically.
-    return Promise.resolve({
-        id: input.id,
-        nama: input.nama || 'placeholder',
-        umur: input.umur || 0,
-        jenis_kelamin: input.jenis_kelamin || 'L',
-        alamat: input.alamat || 'placeholder',
-        kontak: input.kontak || 'placeholder',
-        tanggal_tindakan: input.tanggal_tindakan || new Date(),
-        catatan_medis: input.catatan_medis || null,
-        biaya: input.biaya || 0,
-        status_pembayaran: input.status_pembayaran || 'BELUM_LUNAS',
-        created_at: new Date(),
-        updated_at: new Date()
-    } as Pasien);
-}
+export const updatePasien = async (input: UpdatePasienInput): Promise<Pasien> => {
+  try {
+    // Build update object with only provided fields
+    const updateData: any = {};
+    
+    if (input.nama !== undefined) updateData.nama = input.nama;
+    if (input.umur !== undefined) updateData.umur = input.umur;
+    if (input.jenis_kelamin !== undefined) updateData.jenis_kelamin = input.jenis_kelamin;
+    if (input.alamat !== undefined) updateData.alamat = input.alamat;
+    if (input.kontak !== undefined) updateData.kontak = input.kontak;
+    if (input.tanggal_tindakan !== undefined) updateData.tanggal_tindakan = input.tanggal_tindakan;
+    if (input.catatan_medis !== undefined) updateData.catatan_medis = input.catatan_medis;
+    if (input.biaya !== undefined) updateData.biaya = input.biaya.toString(); // Convert number to string for numeric column
+    if (input.status_pembayaran !== undefined) updateData.status_pembayaran = input.status_pembayaran;
+
+    // Always update the updated_at timestamp
+    updateData.updated_at = new Date();
+
+    // Update patient record
+    const result = await db.update(pasienTable)
+      .set(updateData)
+      .where(eq(pasienTable.id, input.id))
+      .returning()
+      .execute();
+
+    if (result.length === 0) {
+      throw new Error(`Patient with id ${input.id} not found`);
+    }
+
+    // Convert numeric fields back to numbers before returning
+    const pasien = result[0];
+    return {
+      ...pasien,
+      biaya: parseFloat(pasien.biaya) // Convert string back to number
+    };
+  } catch (error) {
+    console.error('Patient update failed:', error);
+    throw error;
+  }
+};
